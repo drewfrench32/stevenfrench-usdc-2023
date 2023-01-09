@@ -20,24 +20,28 @@
  * */ 
 function findSearchTermInBooks(searchTerm, scannedTextObj) {
     const results = [];
-    let preHyphenWord = '';
-    let preHyphenLineAdded = false;
-    let prevPage = -1;
-    let prevLine = -1;
 
     for (let i = 0; i < scannedTextObj.length; i++) {
         const book = scannedTextObj[i];
+        
+        let preHyphenWord = '';
+        let preHyphenLineAdded = false;
+        let prevPage = -1;
+        let prevLine = -1;
+
         for (let j = 0; j < book.Content.length; j++) {
             const bookContent = book.Content[j];
+            let bookText = bookContent.Text;
+
             let alreadyAdded = false;
 
             // handle hyphenated words
 
             // if previous line ended with a hyphen and it is the next line of the same page:
             if(preHyphenWord != '' && bookContent.Page === prevPage && bookContent.Line === (prevLine + 1)) {
-                const postHyphenWord = bookContent.Text.split(' ')[0]; // get first word
-                const remainingText = bookContent.Text.substring(bookContent.Text.indexOf(' ')+1);
-                bookContent.Text = remainingText; // check the rest of the string after
+                const postHyphenWord = bookText.split(' ')[0]; // get first word
+                const remainingText = bookText.substring(bookText.indexOf(' ')+1);
+                bookText = remainingText; // check the rest of the string after
                 // if the hyphenated word is the target, add previous and current line to results
                 if(preHyphenWord + postHyphenWord === searchTerm) {
                     if(!preHyphenLineAdded) {
@@ -67,8 +71,8 @@ function findSearchTermInBooks(searchTerm, scannedTextObj) {
             prevLine = -1;
 
             // if this line ends with a hyphen:
-            if(bookContent.Text.endsWith('-')) {
-                preHyphenWord = bookContent.Text.split(' ').pop().slice(0, -1); // pop to get last word, then slice to remove trailing hyphen
+            if(bookText.endsWith('-')) {
+                preHyphenWord = bookText.split(' ').pop().slice(0, -1); // pop to get last word, then slice to remove trailing hyphen
                 prevPage = bookContent.Page;
                 prevLine = bookContent.Line;
                 if(alreadyAdded) {
@@ -80,7 +84,7 @@ function findSearchTermInBooks(searchTerm, scannedTextObj) {
                 continue; // skip further checking if this line is already added
             }
             // check if the Text contains the desired searchTerm
-            if (bookContent.Text.includes(' ' + searchTerm + ' ') || bookContent.Text.split(' ')[0] === searchTerm || bookContent.Text.split(' ').pop() === searchTerm) {
+            if (bookText.includes(' ' + searchTerm + ' ') || bookText.split(' ')[0] === searchTerm || bookText.split(' ').pop() === searchTerm) {
                 // if so, add ISBN, Page, and Line to the results array
                 results.push({
                     // interpret ISBN as a string
@@ -188,8 +192,36 @@ const testInputB = [
                 "Text": "rolled over the sleeping brown fox."
             }
         ]
+    },
+    {
+        "Title": "Test Input A",
+        "ISBN": "00001",
+        "Content": [
+            {
+                "Page": 1,
+                "Line": 19,
+                "Text": "Sample text number one featu-"
+            },
+            {
+                "Page": 1,
+                "Line": 20,
+                "Text": "ring some extra things including featuri-"
+            },
+            {
+                "Page": 1,
+                "Line": 21,
+                "Text": "ng the word featuring several times but not feat-"
+            },
+            {
+                "Page": 1,
+                "Line": 30,
+                "Text": "uring sample apples, oranges, and bananas\' flavors."
+            }
+        ]
     }
 ]
+
+const testInputEmpty = []
     
 /** Example output object */
 const twentyLeaguesOut = {
@@ -249,6 +281,32 @@ const testOutputB1 = {
             "Line": 5
         }
     ]
+}
+
+const testOutputB2 = {
+    "SearchTerm": "the",
+    "Results": [
+        {
+            "ISBN": "00002",
+            "Page": 34,
+            "Line": 18
+        },
+        {
+            "ISBN": "00002",
+            "Page": 34,
+            "Line": 19
+        },
+        {
+            "ISBN": "00001",
+            "Page": 1,
+            "Line": 21
+        }
+    ]
+}
+
+const testOutputEmpty = {
+    "SearchTerm": "a",
+    "Results": []
 }
 
 /*
@@ -322,3 +380,22 @@ if(JSON.stringify(testOutputB1) === JSON.stringify(testB1result)) {
     console.log("Expected:", testOutputB1);
     console.log("Received:", testB1result);
 }
+
+const testB2result = findSearchTermInBooks("the", testInputB);
+if(JSON.stringify(testOutputB2) === JSON.stringify(testB2result)) {
+    console.log("PASS: Test B2");
+} else {
+    console.log("FAIL: Test B2");
+    console.log("Expected:", testOutputB2);
+    console.log("Received:", testB2result);
+}
+
+const test3result = findSearchTermInBooks("a", testInputEmpty);
+if(JSON.stringify(testOutputEmpty) === JSON.stringify(test3result)) {
+    console.log("PASS: Test 3");
+} else {
+    console.log("FAIL: Test 3");
+    console.log("Expected:", testOutputEmpty);
+    console.log("Received:", test3result);
+}
+
