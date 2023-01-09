@@ -20,14 +20,67 @@
  * */ 
 function findSearchTermInBooks(searchTerm, scannedTextObj) {
     const results = [];
+    let preHyphenWord = '';
+    let preHyphenLineAdded = false;
+    let prevPage = -1;
+    let prevLine = -1;
 
     for (let i = 0; i < scannedTextObj.length; i++) {
         const book = scannedTextObj[i];
         for (let j = 0; j < book.Content.length; j++) {
             const bookContent = book.Content[j];
-            
+            let alreadyAdded = false;
+
+            // handle hyphenated words
+
+            // if previous line ended with a hyphen and it is the next line of the same page:
+            if(preHyphenWord != '' && bookContent.Page === prevPage && bookContent.Line === (prevLine + 1)) {
+                const postHyphenWord = bookContent.Text.split(' ')[0]; // get first word
+                const remainingText = bookContent.Text.substring(bookContent.Text.indexOf(' ')+1);
+                bookContent.Text = remainingText; // check the rest of the string after
+                // if the hyphenated word is the target, add previous and current line to results
+                if(preHyphenWord + postHyphenWord === searchTerm) {
+                    if(!preHyphenLineAdded) {
+                        // add previous ISBN, Page, and Line to the results array
+                        results.push({
+                            // interpret ISBN as string
+                            ISBN: book.ISBN.toString(),
+                            Page: prevPage,
+                            Line: prevLine
+                        });
+                    }
+                    alreadyAdded = true;
+                    // add current ISBN, Page, and Line to the results array
+                    results.push({
+                        // interpret ISBN as a string
+                        ISBN: book.ISBN.toString(),
+                        Page: bookContent.Page,
+                        Line: bookContent.Line
+                    });
+                }
+            }
+
+            // reset previous values
+            preHyphenWord = '';
+            preHyphenLineAdded = false;
+            prevPage = -1;
+            prevLine = -1;
+
+            // if this line ends with a hyphen:
+            if(bookContent.Text.endsWith('-')) {
+                preHyphenWord = bookContent.Text.split(' ').pop().slice(0, -1); // pop to get last word, then slice to remove trailing hyphen
+                prevPage = bookContent.Page;
+                prevLine = bookContent.Line;
+                if(alreadyAdded) {
+                    preHyphenLineAdded = true;
+                }
+            }
+
+            if(alreadyAdded) {
+                continue; // skip further checking if this line is already added
+            }
             // check if the Text contains the desired searchTerm
-            if (bookContent.Text.includes(searchTerm)) {
+            if (bookContent.Text.includes(' ' + searchTerm + ' ') || bookContent.Text.split(' ')[0] === searchTerm || bookContent.Text.split(' ').pop() === searchTerm) {
                 // if so, add ISBN, Page, and Line to the results array
                 results.push({
                     // interpret ISBN as a string
@@ -35,6 +88,10 @@ function findSearchTermInBooks(searchTerm, scannedTextObj) {
                     Page: bookContent.Page,
                     Line: bookContent.Line
                 });
+                // if there is a trailing hyphen, mark this line as already added in case it would be added again
+                if(preHyphenWord != '') {
+                    preHyphenLineAdded = true;
+                }
             }
         }
     }
@@ -70,6 +127,69 @@ const twentyLeaguesIn = [
         ] 
     }
 ]
+
+const testInputA = [
+    {
+        "Title": "Test Input A",
+        "ISBN": "00001",
+        "Content": [
+            {
+                "Page": 1,
+                "Line": 19,
+                "Text": "Sample text number one featu-"
+            },
+            {
+                "Page": 1,
+                "Line": 20,
+                "Text": "ring some extra things including featuri-"
+            },
+            {
+                "Page": 1,
+                "Line": 21,
+                "Text": "ng the word featuring several times but not feat-"
+            },
+            {
+                "Page": 1,
+                "Line": 30,
+                "Text": "uring sample apples, oranges, and bananas\' flavors."
+            }
+        ]
+    }
+]
+
+const testInputB = [
+    {
+        "Title": "Test Input B",
+        "ISBN": "00002",
+        "Content": [
+            {
+                "Page": 34,
+                "Line": 5,
+                "Text": "A rather unusual page with a ra-"
+            },
+            {
+                "Page": 34,
+                "Line": 6,
+                "Text": "ther unusual-"
+            },
+            {
+                "Page": 34,
+                "Line": 7,
+                "Text": "unusual nonexistent word here and short middle, but otherwise fairly normal."
+            },
+            {
+                "Page": 34,
+                "Line": 18,
+                "Text": "The quick brown fox jumped over the slow brown fox which"
+            },
+            {
+                "Page": 34,
+                "Line": 19,
+                "Text": "rolled over the sleeping brown fox."
+            }
+        ]
+    }
+]
     
 /** Example output object */
 const twentyLeaguesOut = {
@@ -79,6 +199,54 @@ const twentyLeaguesOut = {
             "ISBN": "9780000528531",
             "Page": 31,
             "Line": 9
+        }
+    ]
+}
+
+const testOutputA1 = {
+    "SearchTerm": "featuring",
+    "Results": [
+        {
+            "ISBN": "00001",
+            "Page": 1,
+            "Line": 19
+        },
+        {
+            "ISBN": "00001",
+            "Page": 1,
+            "Line": 20
+        },
+        {
+            "ISBN": "00001",
+            "Page": 1,
+            "Line": 21
+        }
+    ]
+}
+
+const testOutputA2 = {
+    "SearchTerm": "ring",
+    "Results": []
+}
+
+const testOutputA3 = {
+    "SearchTerm": "sample",
+    "Results": [
+        {
+            "ISBN": "00001",
+            "Page": 1,
+            "Line": 30
+        }
+    ]
+}
+
+const testOutputB1 = {
+    "SearchTerm": "unusual",
+    "Results": [
+        {
+            "ISBN": "00002",
+            "Page": 34,
+            "Line": 5
         }
     ]
 }
@@ -117,4 +285,40 @@ if (test2result.Results.length == 1) {
     console.log("FAIL: Test 2");
     console.log("Expected:", twentyLeaguesOut.Results.length);
     console.log("Received:", test2result.Results.length);
+}
+
+const testA1result = findSearchTermInBooks("featuring", testInputA);
+if(JSON.stringify(testOutputA1) === JSON.stringify(testA1result)) {
+    console.log("PASS: Test A1");
+} else {
+    console.log("FAIL: Test A1");
+    console.log("Expected:", testOutputA1);
+    console.log("Received:", testA1result);
+}
+
+const testA2result = findSearchTermInBooks("ring", testInputA);
+if(JSON.stringify(testOutputA2) === JSON.stringify(testA2result)) {
+    console.log("PASS: Test A2");
+} else {
+    console.log("FAIL: Test A2");
+    console.log("Expected:", testOutputA2);
+    console.log("Received:", testA2result);
+}
+
+const testA3result = findSearchTermInBooks("sample", testInputA);
+if(JSON.stringify(testOutputA3) === JSON.stringify(testA3result)) {
+    console.log("PASS: Test A3");
+} else {
+    console.log("FAIL: Test A3");
+    console.log("Expected:", testOutputA3);
+    console.log("Received:", testA3result);
+}
+
+const testB1result = findSearchTermInBooks("unusual", testInputB);
+if(JSON.stringify(testOutputB1) === JSON.stringify(testB1result)) {
+    console.log("PASS: Test B1");
+} else {
+    console.log("FAIL: Test B1");
+    console.log("Expected:", testOutputB1);
+    console.log("Received:", testB1result);
 }
